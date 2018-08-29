@@ -1,0 +1,28 @@
+# load packages
+
+```{r}
+library(rgdal)
+library(dplyr)
+library(GISTools)
+library(raster)
+library(sp)
+```
+# read in shapefiles
+```{r}
+durham_shape = readOGR(dsn="./durham_shape", layer="durham_sub", stringsAsFactors = F)
+scraped_pts_df = read.csv('./scraped_pts_df.csv',stringsAsFactors = F)
+ground_truthed_pts = readOGR(dsn="./ground_truthed_pts", layer="ground_truthed_pts", stringsAsFactors = F)
+subdivision_centroids = rgeos::gCentroid(durham_shape,byid=TRUE)
+```
+# plot 
+```{r}
+jpeg("./mapScraping.jpg", width = 1200, height = 1200)
+plot(durham_shape, lty = 2); points(coordinates(durham_shape),pch=9, cex = 1, lwd = 5); points(subdivision_centroids, pch=1, cex = 22, lwd = 3, col = alpha("Black", .8), lty = 2)
+plot(ground_truthed_pts, add=T, pch=16, col="Blue", cex=.75);  points(scraped_pts_df$long, scraped_pts_df$lat, pch=24, col="Red", cex=.75)
+
+## the second one is scraped
+legend("topright", legend = c('Scraped', "GroundTruthed", 'Scrape Radius', 'Centroids', 'County Sub-Division'),
+       col = c('red','blue', 'black', 'black', 'black'), pch = c(24,16,1,18,-1), cex = .8,
+       box.lty = 0, lty= c(-1,-1,-1,-1,2))
+dev.off()
+```

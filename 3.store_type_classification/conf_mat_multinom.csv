@@ -1,0 +1,8 @@
+"Store_Type","N","Sensitivity","Specificity"
+"Beer, wine, liquor store","396","85.1","99.61"
+"Convenience store with or without gas","2770","96.68","93.46"
+"Drug store or pharmacy","243","95.47","99.81"
+"Grocery store","603","87.4","98.78"
+"Mass merchandiser","386","95.34","98.73"
+"Other store type not listed","391","89.77","99.58"
+"Tobacco Hookah ECig","168","95.83","99.94"

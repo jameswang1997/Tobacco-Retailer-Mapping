@@ -1,0 +1,108 @@
+
+```{r}
+library(dplyr)
+library(stringr)
+library(readr)
+library(rpart)
+library(caret)
+library(nnet)
+```
+# read in data 
+```{r}
+df_score = read_csv("./df_score_predict_no_cat.csv") 
+df_predict1 = df_score %>% dplyr::select(9,17:23) %>% na.omit
+df_predict = df_predict1 %>% select(-str_typ) %>% sapply(function(x) scale(x,center = T)) %>% as.data.frame() %>% as_tibble()
+df_predict %>% dim
+df_predict$str_typ = df_predict1$str_typ
+```
+
+# winn dixie
+```{r}
+
+# string = 'winn dixie$'
+getWinnDixie = function(string){
+  df_winn_dixie = df_predict1[df_score$retail_name %>% str_detect(string),]
+ df_winn_dixie$str_token =  df_score$retail_name[df_score$retail_name %>% str_detect(string)]
+ df_winn_dixie
+}
+df_winn_dixie = getWinnDixie('winn dixie$') %>% na.omit()
+
+df_winn_dixie %>% write.csv("./winn_dixie_final_combo.csv", row.names = F)
+
+```
+# train test split
+```{r, fig.height = 18}
+
+# use caret package to stratify sample
+set.seed(241)
+train_idx = createDataPartition(df_predict$str_typ %>% as.factor(), p = .7, list = F)
+df_train = df_predict[train_idx,]
+df_test = df_predict[-train_idx,]
+
+predictTest = function(model, df_test = df_test, confuMat =F) {
+  # test function
+  y_pred = predict(model, df_test %>% select(-str_typ), type = 'class')
+  y_actual = df_test$str_typ
+
+  if (confuMat ==T) {
+      cols = y_pred %>% unique %>% as.character() 
+      conf_mat = matrix(ncol = 4, nrow = length(cols))
+      for (i in seq_along(df_score$str_typ %>% unique)){
+          N = sum(y_actual == cols[i]) # count
+          sensitivity = (sum(y_actual == cols[i] & y_pred == cols[i])/ sum(y_actual == cols[i]) * 100) %>% round(digits = 2) # true +
+          specificity = (sum(y_actual != cols[i] & y_pred != cols[i])/ sum(y_actual != cols[i])* 100) %>% round(digits = 2) # true -
+          conf_mat[i,] = c(cols[[i]], N, sensitivity, specificity) 
+      }
+      conf_mat = conf_mat %>% as.data.frame()
+      colnames(conf_mat) = c('Store_Type', 'N', 'Sensitivity', 'Specificity')
+      return(conf_mat %>% arrange(Store_Type))
+  } else {
+     return((y_pred == y_actual) %>% mean)
+  }
+}
+
+```
+
+#regression baseline
+```{r}
+m.nnet = multinom(str_typ ~., data = df_train)
+predictTest(m.nnet, df_test)
+conf_mat_nnet = predictTest(m.nnet, df_test, confuMat = T)
+write.csv(conf_mat_nnet, './conf_mat_multinom.csv', row.names = F)
+```
+
+
+# rpart
+```{r}
+m1 = rpart(str_typ ~., data = df_train  , method = 'class',
+           control=rpart.control(minsplit=2, cp=0))
+# 
+predictTest(m1, df_test)
+conf_mat_rpart = predictTest(m1, df_test, confuMat = T)
+write.csv(conf_mat_rpart, '/Users/JamesWang1/Dropbox/Counter Tools Data+ Project/Data/conf_mat_rpart_prepruned.csv', row.names = F)
+```
+
+# pruning 
+```{r}
+# no tobacco not used
+# printcp(m1)
+plotcp(m1)
+m1.prune = prune(m1, cp = .03)
+# printcp(m1.prune)
+predictTest(m1.prune, df_test)
+conf_mat_rpart1 = predictTest(m1.prune, df_test, confuMat = T)
+write.csv(conf_mat_rpart1, '/Users/JamesWang1/Dropbox/Counter Tools Data+ Project/Data/conf_mat_rpart1.csv', row.names = F)
+
+```
+
+# plot
+```{r, fig.height = 18}
+png('./decisionTree1.png', height = 15, width = 28, units = 'in', res = 800)
+m1.plotprune = prune(m1, cp = .03)
+plot(m1.plotprune, branch = 1, compress = T, margin = .1)
+text(m1.plotprune, fheight = 3, fwidth = 3, fancy = F)
+dev.off()
+```
+
+
+
